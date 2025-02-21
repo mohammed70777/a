@@ -10,7 +10,7 @@ import (
 	"io"
 	"time"
 	"strconv"
-	"syscall/js"
+	
 )
 
 //**********************//
@@ -39,9 +39,7 @@ var Line_cache_x = make([][]float64, PINS*PINS)
 func init(){
 	image.RegisterFormat("jpeg", "jpeg", jpeg.Decode, jpeg.DecodeConfig)
 }
-func generateStringArt() {
-    // أضف المنطق المطلوب هنا
-}
+
 func main() {
 	SourceImage = importPictureAndGetPixelArray()
 	fmt.Println("Hello, world.")
@@ -57,7 +55,9 @@ func main() {
 	fmt.Println("End")
 }
 
-func generateStringArt()
+func generateStringArt() {
+    // أضف منطق توليد الفن الخيطي هنا
+}
 
 func importPictureAndGetPixelArray() []float64 {
 	imgfile, _ := os.Open("./ae300.jpg")
