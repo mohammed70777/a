@@ -30,9 +30,8 @@ var IMG_SIZE_FL = float64(500)
 var IMG_SIZE_SQ = 250000
 var Pin_coords = []Coord{}
 var SourceImage = []float64{}
-var Line_cache_y = [][]float64{}
-var Line_cache_x = [][]float64{}
-
+var Line_cache_y = make([][]float64, PINS*PINS)
+var Line_cache_x = make([][]float64, PINS*PINS)
 //**********************//
 //		Main			//
 //**********************//
@@ -40,7 +39,9 @@ var Line_cache_x = [][]float64{}
 func init(){
 	image.RegisterFormat("jpeg", "jpeg", jpeg.Decode, jpeg.DecodeConfig)
 }
-
+func generateStringArt() {
+    // أضف المنطق المطلوب هنا
+}
 func main() {
 	SourceImage = importPictureAndGetPixelArray()
 	fmt.Println("Hello, world.")
@@ -119,9 +120,9 @@ func precalculateAllPotentialLines() {
 			x1 := Pin_coords[j].X
 			y1 := Pin_coords[j].Y
 
-			d := math.Floor(math.Sqrt(float64((x1-x0)*(x1-x0) + (y1-y0)*(y1-y0))))
-			xs := roundUpFloatArrayToInt(num.Linspace(float64(x0), float64(x1), int(d)))
-			ys := roundUpFloatArrayToInt(num.Linspace(float64(y0), float64(y1), int(d)))
+			d := int(math.Sqrt((x1-x0)*(x1-x0) + (y1-y0)*(y1-y0)))
+                        xs := roundUpFloatArrayToInt(num.Linspace(x0, x1, d))
+                        ys := roundUpFloatArrayToInt(num.Linspace(y0, y1, d))
 
 			line_cache_y[j*PINS+i] = ys
 			line_cache_y[i*PINS+j] = ys
@@ -178,8 +179,9 @@ func calculateLines() {
 		coords1:=Line_cache_y[index]
 		coords2:=Line_cache_x[index]
 		for i := range coords1 {
-			v := int((coords1[i] * IMG_SIZE_FL) + coords2[i])
-			error[v] = error[v] - LINE_WEIGHT
+    v := int(coords1[i]*IMG_SIZE_FL + coords2[i])
+    error[v] -= LINE_WEIGHT
+}
 		}
 
 		last_pins = append(last_pins, best_pin)
