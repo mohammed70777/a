@@ -3,64 +3,61 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>String Art Generator Pro</title>
     
+    <!-- التبعيات -->
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    
     <style>
-        .progress-bar {
-            transition: width 0.3s ease;
-        }
+        .progress-bar { transition: width 0.3s ease; }
         .hidden { display: none; }
-        .alert-container { position: fixed; top: 20px; right: 20px; z-index: 1000; }
-        canvas { max-width: 100%; height: auto; }
-        .jumbotron { position: relative; }
+        canvas { border: 1px solid #ddd; margin: 10px; }
+        .jumbotron { padding: 2rem; }
     </style>
-    <title>String Art Generator Pro</title>
 </head>
 <body>
     <div class="container">
         <div class="jumbotron">
-            <div class="alert-container" id="alertContainer"></div>
+            <div id="alertContainer"></div>
             
-            <div class="d-flex justify-content-between align-items-center mb-4">
+            <div class="d-flex justify-content-between mb-4">
                 <a href="https://github.com/halfmonty/StringArtGenerator" class="btn btn-sm btn-outline-secondary">
-                    <i class="fab fa-github"></i> View on GitHub
+                    <i class="fab fa-github"></i> GitHub
                 </a>
                 <button class="btn btn-primary" onclick="onHasSteps()">Load Existing</button>
             </div>
 
             <h1 class="display-4">String Art Generator</h1>
             
-            <div class="progress hidden mt-3" id="progressBar">
-                <div class="progress-bar progress-bar-striped" role="progressbar" style="width: 0%"></div>
+            <div class="progress hidden my-3">
+                <div class="progress-bar progress-bar-striped" style="width: 0%"></div>
             </div>
 
-            <div class="variables-section mt-4">
-                <h5>Generator Settings:</h5>
+            <div class="my-4">
                 <div class="row">
                     <div class="col-md-4">
                         <div class="form-group">
-                            <label for="numberOfPins">Number of Pins (36-500)</label>
-                            <input type="number" class="form-control" id="numberOfPins" min="36" max="500">
-                            <small class="text-danger hidden" id="pinsError">Must be between 36-500</small>
+                            <label>Number of Pins (36-500)</label>
+                            <input type="number" id="numberOfPins" class="form-control" value="288" min="36" max="500">
                         </div>
                     </div>
                     <div class="col-md-4">
                         <div class="form-group">
-                            <label for="numberOfLines">Number of Lines</label>
-                            <input type="number" class="form-control" id="numberOfLines" min="100" max="10000">
+                            <label>Number of Lines</label>
+                            <input type="number" id="numberOfLines" class="form-control" value="4000">
                         </div>
                     </div>
                     <div class="col-md-4">
                         <div class="form-group">
-                            <label for="lineWeight">Line Weight</label>
-                            <input type="number" class="form-control" id="lineWeight" min="1" max="50">
+                            <label>Line Weight</label>
+                            <input type="number" id="lineWeight" class="form-control" value="20">
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="text-center mt-4">
+            <div class="text-center">
                 <label class="btn btn-primary btn-lg">
                     <i class="fas fa-image"></i> Select Image 
                     <input type="file" id="fileInput" hidden>
@@ -68,128 +65,55 @@
             </div>
         </div>
 
-        <!-- Visualization Sections -->
-        <div class="row">
-            <div class="col">
-                <!-- Steps 1-3 same as before -->
-                <!-- ShowPins section with save button -->
-                <div id="showPins" class="hidden mt-4">
-                    <button class="btn btn-success mb-3" onclick="saveResult()">
-                        <i class="fas fa-download"></i> Save as PNG
-                    </button>
-                    <!-- Rest of showPins content -->
-                </div>
+        <!-- مراحل المعالجة -->
+        <div id="processingSteps">
+            <div id="step1" class="hidden">
+                <h5>Original Image</h5>
+                <img id="imageSrc" class="img-fluid">
+            </div>
+            
+            <div id="step2" class="hidden">
+                <h5>Processed Image</h5>
+                <canvas id="canvasOutput" class="img-fluid"></canvas>
+            </div>
+            
+            <div id="step3" class="hidden">
+                <h5>Result</h5>
+                <canvas id="canvasOutput2" class="img-fluid"></canvas>
+                <button class="btn btn-success mt-3" onclick="saveResult()">
+                    <i class="fas fa-download"></i> Save PNG
+                </button>
             </div>
         </div>
     </div>
 
+<!-- الكود الأساسي -->
 <script>
-// Improved Configuration
-const CONFIG = {
+// التهيئة
+const STATE = {
     IMG_SIZE: 500,
-    MAX_LINES: 4000,
-    N_PINS: 288,
-    LINE_WEIGHT: 20,
-    MIN_DISTANCE: 20,
-    SCALE: 2
+    pins: [],
+    lines: [],
+    currentStep: 0
 };
 
-// Web Worker Management
-const worker = new Worker('worker.js');
-
-// Initialization
-let imgElement = document.getElementById("imageSrc");
-let inputElement = document.getElementById("fileInput");
-inputElement.addEventListener("change", handleImageUpload);
-
-function handleImageUpload(e) {
-    if(!validateInputs()) return;
+// معالجة الصورة
+document.getElementById('fileInput').addEventListener('change', function(e) {
     const file = e.target.files[0];
-    if(!file.type.startsWith('image/')) {
-        showAlert('Please upload a valid image file', 'danger');
+    if (!file.type.startsWith('image/')) {
+        showAlert('Please select an image file', 'danger');
         return;
     }
-    imgElement.src = URL.createObjectURL(file);
-}
-
-function validateInputs() {
-    const pins = parseInt(numberOfPins.value);
-    if(pins < 36 || pins > 500) {
-        showAlert('Number of pins must be between 36-500', 'danger');
-        return false;
-    }
-    return true;
-}
-
-// Progress Handling
-function updateProgress(percentage) {
-    const progressBar = document.querySelector('.progress-bar');
-    progressBar.style.width = `${percentage}%`;
-    progressBar.textContent = `${Math.round(percentage)}%`;
-    progressBar.parentElement.classList.remove('hidden');
-}
-
-// Web Worker Communication
-worker.onmessage = function(e) {
-    switch(e.data.task) {
-        case 'pinsDone':
-            handlePinsCalculation(e.data.result);
-            break;
-        case 'linesProgress':
-            updateProgress(e.data.progress);
-            break;
-        case 'processingError':
-            showAlert(e.data.error, 'danger');
-            break;
-    }
-};
-
-function handlePinsCalculation(pins) {
-    pin_coords = pins;
-    showStep(2);
-    worker.postMessage({
-        task: 'precalculateLines',
-        pins: pin_coords,
-        config: CONFIG
-    });
-}
-
-// Enhanced Drawing Functions
-function drawOptimized() {
-    const canvas = document.getElementById('canvasOutput2');
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // Batch draw operations
-    const BATCH_SIZE = 100;
-    let drawn = 0;
-    
-    function drawBatch() {
-        const limit = Math.min(drawn + BATCH_SIZE, line_sequence.length-1);
-        for(; drawn < limit; drawn++) {
-            const start = pin_coords[line_sequence[drawn]];
-            const end = pin_coords[line_sequence[drawn+1]];
-            drawLine(ctx, start, end);
-        }
-        
-        if(drawn < line_sequence.length-1) {
-            requestAnimationFrame(drawBatch);
-        }
-    }
-    
-    drawBatch();
-}
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        document.getElementById('imageSrc').src = e.target.result;
+        document.getElementById('step1').classList.remove('hidden');
+    };
+    reader.readAsDataURL(file);
+});
 
-function drawLine(ctx, start, end) {
-    ctx.beginPath();
-    ctx.moveTo(start[0] * CONFIG.SCALE, start[1] * CONFIG.SCALE);
-    ctx.lineTo(end[0] * CONFIG.SCALE, end[1] * CONFIG.SCALE);
-    ctx.strokeStyle = 'rgba(0,0,0,0.1)';
-    ctx.lineWidth = 0.5;
-    ctx.stroke();
-}
-
-// Save Functionality
+// حفظ النتيجة
 function saveResult() {
     const canvas = document.getElementById('canvasOutput2');
     const link = document.createElement('a');
@@ -198,87 +122,100 @@ function saveResult() {
     link.click();
 }
 
-// Error Handling
-function showAlert(message, type) {
-    const alert = document.createElement('div');
-    alert.className = `alert alert-${type} alert-dismissible fade show`;
-    alert.innerHTML = `
-        ${message}
+// إدارة التقدم
+function updateProgress(percent) {
+    const bar = document.querySelector('.progress-bar');
+    bar.style.width = percent + '%';
+    bar.textContent = Math.round(percent) + '%';
+}
+
+// معالجة الأخطاء
+function showAlert(msg, type) {
+    const alert = `<div class="alert alert-${type} alert-dismissible fade show">
+        ${msg}
         <button type="button" class="close" data-dismiss="alert">&times;</button>
-    `;
-    
-    document.getElementById('alertContainer').appendChild(alert);
-    
-    setTimeout(() => {
-        alert.remove();
-    }, 5000);
+    </div>`;
+    document.getElementById('alertContainer').innerHTML = alert;
 }
 
-// Event Listeners
-document.getElementById('numberOfPins').addEventListener('input', function(e) {
-    const value = parseInt(e.target.value);
-    if(value >= 36 && value <= 500) {
-        CONFIG.N_PINS = value;
-        document.getElementById('pinsError').classList.add('hidden');
-    } else {
-        document.getElementById('pinsError').classList.remove('hidden');
-    }
-});
-
-// Rest of the original functionality remains similar but uses CONFIG
-// ... (Original code adapted to use the new CONFIG object and worker)
-
-function onOpenCvReady() {
-    document.getElementById('status').textContent = 'Ready to generate!';
-    document.getElementById('numberOfPins').value = CONFIG.N_PINS;
-    document.getElementById('numberOfLines').value = CONFIG.MAX_LINES;
-    document.getElementById('lineWeight').value = CONFIG.LINE_WEIGHT;
-}
-</script>
-
-<!-- worker.js content as separate file -->
-<script>
-// Save this as worker.js
+// Web Worker
+const workerCode = `  
 self.onmessage = function(e) {
     const { task, data } = e.data;
-    
     try {
         switch(task) {
             case 'calculatePins':
                 const pins = [];
-                const center = data.center;
-                const radius = data.radius;
-                
-                for(let i = 0; i < data.N_PINS; i++) {
-                    const angle = 2 * Math.PI * i / data.N_PINS;
+                for(let i=0; i<data.total; i++) {
+                    const angle = (Math.PI * 2 * i)/data.total;
                     pins.push([
-                        Math.floor(center + radius * Math.cos(angle)),
-                        Math.floor(center + radius * Math.sin(angle))
+                        Math.floor(data.center + data.radius * Math.cos(angle)),
+                        Math.floor(data.center + data.radius * Math.sin(angle))
                     ]);
                 }
-                self.postMessage({ task: 'pinsDone', result: pins });
+                self.postMessage({ task: 'pinsDone', pins });
                 break;
-                
-            case 'precalculateLines':
-                // Line precalculation logic
-                break;
-                
-            // Add other cases as needed
         }
-    } catch (error) {
-        self.postMessage({ 
-            task: 'processingError',
-            error: error.message 
-        });
+    } catch(err) {
+        self.postMessage({ task: 'error', error: err.message });
     }
 };
+`;
+
+const blob = new Blob([workerCode], { type: 'application/javascript' });
+const worker = new Worker(URL.createObjectURL(blob));
+
+worker.onmessage = function(e) {
+    switch(e.data.task) {
+        case 'pinsDone':
+            STATE.pins = e.data.pins;
+            processImage();
+            break;
+        case 'error':
+            showAlert(e.data.error, 'danger');
+            break;
+    }
+};
+
+// بدء المعالجة
+function processImage() {
+    updateProgress(0);
+    const img = document.getElementById('imageSrc');
+    const canvas = document.getElementById('canvasOutput');
+    const ctx = canvas.getContext('2d');
+    
+    canvas.width = STATE.IMG_SIZE;
+    canvas.height = STATE.IMG_SIZE;
+    
+    img.onload = function() {
+        ctx.drawImage(img, 0, 0, STATE.IMG_SIZE, STATE.IMG_SIZE);
+        updateProgress(30);
+        startCalculation();
+    };
+}
+
+function startCalculation() {
+    worker.postMessage({
+        task: 'calculatePins',
+        data: {
+            total: parseInt(document.getElementById('numberOfPins').value),
+            center: STATE.IMG_SIZE/2,
+            radius: STATE.IMG_SIZE/2 - 1
+        }
+    });
+}
+
+// التهيئة النهائية
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelector('.progress').classList.remove('hidden');
+});
 </script>
 
-<!-- باقي السكريبتات الأصلية -->
-<script async src="opencv.js" onload="onOpenCvReady();"></script>
+<!-- التبعيات -->
 <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/nicolaspanel/numjs@0.15.1/dist/numjs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>
 <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
+<script async src="https://docs.opencv.org/master/opencv.js" onload="console.log('OpenCV loaded')"></script>
 </body>
 </html>
